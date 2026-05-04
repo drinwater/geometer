@@ -102,15 +102,7 @@ class Tensor(eqx.Module):
                 self._covariant_indices = np.append(self._covariant_indices, n_free_indices + idx)
 
         free_indices = np.array(range(n_free_indices))
-
-        _args = np.array(args)
-        if _args.ndim == 2 and len(_args) == 3: # Point case
-            self._contravariant_indices = np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank) - free_indices
-        elif _args.ndim == 0: # Line case
-            self._contravariant_indices = np.setdiff1d(np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank), free_indices, size=self.rank)
-
-        else:
-            self._contravariant_indices = np.setdiff1d(np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank), free_indices, size=self.rank)
+        self._contravariant_indices = np.setdiff1d(np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank), free_indices, size=self.rank)
 
         self._validate_tensor()
 
