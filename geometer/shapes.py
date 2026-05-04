@@ -5,7 +5,7 @@ from abc import ABC
 from itertools import combinations
 from typing import TYPE_CHECKING, TypeVar, cast
 
-import jax.numpy as np
+import numpy as np
 import numpy.typing as npt
 from typing_extensions import Self, override
 

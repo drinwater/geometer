@@ -4,7 +4,7 @@ from collections.abc import Iterable, Sequence
 from numbers import Number
 from typing import TYPE_CHECKING, Literal, TypedDict
 
-import jax.numpy as np
+import numpy as np
 from numpy import typing as npt
 
 if TYPE_CHECKING:

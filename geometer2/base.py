@@ -5,12 +5,16 @@ from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from itertools import permutations
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal
 
-import numpy as np
+import jax
+import jax.numpy as np
+import equinox as eqx
+from jax import typing as jt
+from jax.experimental import checkify
 import numpy.typing as npt
 from typing_extensions import TypeVar, Unpack, overload, override
 
-from geometer.exceptions import IncompatibleShapeError, TensorComputationError
-from geometer.utils import (
+from geometer2.exceptions import IncompatibleShapeError, TensorComputationError
+from geometer2.utils import (
     is_multiple,
     is_numerical_dtype,
     is_numerical_scalar,
@@ -18,19 +22,19 @@ from geometer.utils import (
     posify_index,
     sanitize_index,
 )
-from geometer.utils.ops_dispatch import maybe_dispatch_ufunc_to_dunder_op
+from geometer2.utils.ops_dispatch import maybe_dispatch_ufunc_to_dunder_op
 
 if TYPE_CHECKING:
     from typing_extensions import Self
 
-    from geometer.transformation import Transformation, TransformationCollection, TransformationTensor
-    from geometer.utils.typing import NDArrayParameters, NumericalArray, NumericalDType, Shape, TensorIndex
+    from geometer2.transformation import Transformation, TransformationCollection, TransformationTensor
+    from geometer2.utils.typing import NDArrayParameters, NumericalArray, NumericalDType, Shape, TensorIndex
 
 EQ_TOL_REL = 1e-15
 EQ_TOL_ABS = 1e-8
 
 
-class Tensor:
+class Tensor(eqx.Module):
     """Wrapper class around a numpy array that keeps track of covariant and contravariant indices.
 
     Covariant indices are the lower indices (subscripts) and contravariant indices are the upper indices (superscripts)
@@ -54,9 +58,9 @@ class Tensor:
 
     """
 
-    array: NumericalArray
-    _covariant_indices: set[int]
-    _contravariant_indices: set[int]
+    array: jt.ArrayLike
+    _covariant_indices: jt.ArrayLike[int]
+    _contravariant_indices: jt.ArrayLike[int]
 
     def __init__(
         self,
@@ -65,8 +69,6 @@ class Tensor:
         tensor_rank: int | None = None,
         **kwargs: Unpack[NDArrayParameters],
     ) -> None:
-        if len(args) == 0:
-            raise TypeError("At least one argument is required.")
 
         if len(args) == 1:
             if isinstance(args[0], Tensor):
@@ -84,31 +86,36 @@ class Tensor:
         elif tensor_rank < 0:
             tensor_rank += self.shape[-1]
 
-        if self.rank < tensor_rank:
-            raise ValueError("tensor_rank must be smaller than or equal to the number of array dimensions.")
+        checkify.check(not self.rank < tensor_rank, "tensor_rank must be smaller than or equal to the number of array dimensions.")
 
         n_free_indices = self.rank - tensor_rank
         if covariant is True:
-            self._covariant_indices = set(range(n_free_indices, self.rank))
+            self._covariant_indices = np.array(range(n_free_indices, self.rank))
         elif covariant is False:
-            self._covariant_indices = set()
+            self._covariant_indices = np.array([])
         else:
-            self._covariant_indices = set()
+            self._covariant_indices = np.array([])
             for idx in covariant:
-                if not -tensor_rank <= idx < tensor_rank:
-                    raise IndexError(f"Index {idx} out of range [{-tensor_rank}, {tensor_rank})")
+                checkify.check(-tensor_rank <= idx < tensor_rank, f"Index {idx} out of range [{-tensor_rank}, {tensor_rank})")
                 idx = sanitize_index(idx)  # type: ignore[no-untyped-call]
                 idx = posify_index(tensor_rank, idx)  # type: ignore[no-untyped-call]
-                self._covariant_indices.add(n_free_indices + idx)
+                self._covariant_indices = np.append(self._covariant_indices, n_free_indices + idx)
 
-        free_indices = set(range(n_free_indices))
-        self._contravariant_indices = set(range(self.rank)) - self._covariant_indices - free_indices
+        free_indices = np.array(range(n_free_indices))
+
+        _args = np.array(args)
+        if _args.ndim == 2 and len(_args) == 3: # Point case
+            self._contravariant_indices = np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank) - free_indices
+        elif _args.ndim == 0: # Line case
+            self._contravariant_indices = np.setdiff1d(np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank), free_indices, size=self.rank)
+
+        else:
+            self._contravariant_indices = np.setdiff1d(np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank), free_indices, size=self.rank)
 
         self._validate_tensor()
 
     def _validate_tensor(self) -> None:
-        if not is_numerical_dtype(self.dtype):
-            raise TypeError(f"The dtype of a Tensor must be a numeric dtype, not {self.dtype.name}")
+        checkify.check(is_numerical_dtype(self.dtype), f"The dtype of a Tensor must be a numeric dtype, not {self.dtype.name}")
 
     @classmethod
     def _get_collection_class(cls) -> type[TensorCollection[Self]]:
@@ -121,8 +128,7 @@ class Tensor:
             return None
 
         result = find_class(TensorCollection)
-        if result is None:
-            raise TypeError(f"No TensorCollection found for {cls.__name__}")
+        checkify.check(result is not None, "No TensorCollection found for {cls.__name__}")
         return result
 
     @overload
@@ -192,8 +198,7 @@ class Tensor:
             The tensor product.
 
         """
-        if self.free_indices > 0 or other.free_indices > 0:
-            raise NotImplementedError("tensor_product is only implemented for tensors without free indices")
+        checkify.check(not (self.free_indices > 0) or not (other.free_indices > 0), "tensor_product is only implemented for tensors without free indices")
         offset = self.rank
         covariant = list(self._covariant_indices) + [offset + i for i in other._covariant_indices]
         contravariant = list(self._contravariant_indices) + [offset + i for i in other._contravariant_indices]
@@ -440,8 +445,7 @@ class BoundTensor(Tensor):
     @override
     def _validate_tensor(self) -> None:
         super()._validate_tensor()
-        if self.free_indices != 0:
-            raise IncompatibleShapeError(
+        checkify.check(self.free_indices == 0, 
                 f"Only tensors without free indices can be used in a {self.__class__.__name__}"
             )
 
@@ -466,8 +470,7 @@ class TensorCollection(Tensor, Generic[TensorT], Sized, Iterable[TensorT]):
     @override
     def _validate_tensor(self) -> None:
         super()._validate_tensor()
-        if self.free_indices == 0:
-            raise IncompatibleShapeError(
+        checkify.check(self.free_indices != 0,
                 f"Tensor has no free indices and cannot be used in a {self.__class__.__name__}."
             )
 
@@ -523,8 +526,7 @@ class TensorCollection(Tensor, Generic[TensorT], Sized, Iterable[TensorT]):
         """
         axis = sanitize_index(axis)  # type: ignore[no-untyped-call]
         axis = posify_index(self.rank + 1, axis)  # type: ignore[no-untyped-call]
-        if axis > self.free_indices:
-            raise ValueError("Free indices can only be inserted at the beginning.")
+        checkify.check(not (axis > self.free_indices), "Free indices can only be inserted at the beginning.")
 
         result = self.copy()
         result.array = np.expand_dims(self.array, axis)
@@ -598,7 +600,7 @@ class LeviCivitaTensor(BoundTensor):
 
     """
 
-    array: npt.NDArray[np.int8]
+    array: jt.ArrayLike[np.int8]
     _cache: ClassVar[dict[int, np.ndarray]] = {}
 
     def __init__(self, size: int, covariant: bool = True) -> None:
@@ -607,10 +609,10 @@ class LeviCivitaTensor(BoundTensor):
         else:
             i, j = np.triu_indices(size, 1)
             indices = np.array(list(permutations(range(size))), dtype=int).T
-            diff = indices[j] - indices[i]
+            diff = np.array(indices[j] - indices[i])
             diff = np.sign(diff)
             array = np.zeros(size * [size], dtype=np.int8)
-            array[tuple(indices)] = np.prod(diff, axis=0)
+            array = array.at[tuple(indices)].set(np.prod(diff, axis=0))
 
             self._cache[size] = array
         super().__init__(array, covariant=bool(covariant), copy=None)
@@ -750,16 +752,13 @@ class TensorDiagram:
                 target_index = len(self._nodes)
                 free_target = self.add_node(target)[1]
 
-        if len(free_source) == 0 or len(free_target) == 0:
-            raise TensorComputationError("Could not add the edge because no indices are left.")
+        checkify.check(not(len(free_source) == 0 or len(free_target) == 0), "Could not add the edge because no indices are left.")
 
         # Third step: Pick some free indices
         i = free_source.pop(0)
         j = free_target.pop(0)
 
-        if source.shape[i] != target.shape[j]:
-            raise TensorComputationError(
-                f"Dimension of tensors is inconsistent, encountered dimensions {source.shape[i]} and {target.shape[j]}."
+        checkify.check(not(source.shape[i] != target.shape[j]), f"Dimension of tensors is inconsistent, encountered dimensions {source.shape[i]} and {target.shape[j]}."
             )
 
         self._contraction_list.append((source_index, target_index, i, j))
@@ -831,12 +830,9 @@ class ProjectiveTensor(Tensor, ABC):
         **kwargs: Unpack[NDArrayParameters],
     ) -> None:
         super().__init__(*args, covariant=covariant, tensor_rank=tensor_rank, **kwargs)
-        if self.rank == 0:
-            raise ValueError("A projective tensor cannot be of rank 0")
-        if self.shape[-1] == 0:
-            raise ValueError("A projective tensor cannot have trailing dimension 0")
-        if not 0 < self.dim <= 3:
-            raise ValueError(f"Only dimensions 1, 2 and 3 are supported, got dimension {self.dim}")
+        checkify.check(self.rank != 0, "A projective tensor cannot be of rank 0")
+        checkify.check(self.shape[-1] != 0, "A projective tensor cannot have trailing dimension 0")
+        checkify.check(not(not 0 < self.dim <= 3), f"Only dimensions 1, 2 and 3 are supported, got dimension {self.dim}")
 
     @override
     def __eq__(self, other: object) -> bool:
