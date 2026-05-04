@@ -64,6 +64,8 @@ class QuadricTensor(ProjectiveTensor, ABC):
             i.e. contains all hyperplanes tangent to the non-dual quadric.
 
     """
+    is_dual: bool
+
 
     def __init__(
         self,

@@ -139,7 +139,9 @@ def _join_meet_duality(
         axes = tuple(result._covariant_indices) + tuple(result._contravariant_indices)
         max_abs = np.max(np.abs(result.array), axis=axes, keepdims=True)
         _, max_exponent = np.frexp(max_abs)
-        result.array = _divide_by_power_of_two(result.array, max_exponent)
+        t = type(result)
+        result = t(_divide_by_power_of_two(result.array, max_exponent), result._covariant_indices, result._contravariant_indices)
+        # result.array = _divide_by_power_of_two(result.array, max_exponent)
 
     if result.tensor_shape == (0, 1):
         return LineCollection.from_tensor(result) if n == 3 else PlaneCollection.from_tensor(result)
@@ -702,7 +704,7 @@ class SubspaceTensor(ProjectiveTensor, ABC):
 
         """
         if isinstance(other, PointTensor):
-            result = self * other
+            result = self.array * other.array
         elif isinstance(other, LineTensor):
             result = self * other.covariant_tensor
         else:

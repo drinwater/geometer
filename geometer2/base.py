@@ -5,7 +5,9 @@ from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from itertools import permutations
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal
 
+import jax
 import jax.numpy as np
+import equinox as eqx
 from jax import typing as jt
 from jax.experimental import checkify
 import numpy.typing as npt
@@ -32,7 +34,7 @@ EQ_TOL_REL = 1e-15
 EQ_TOL_ABS = 1e-8
 
 
-class Tensor:
+class Tensor(eqx.Module):
     """Wrapper class around a numpy array that keeps track of covariant and contravariant indices.
 
     Covariant indices are the lower indices (subscripts) and contravariant indices are the upper indices (superscripts)
@@ -57,8 +59,8 @@ class Tensor:
     """
 
     array: jt.ArrayLike
-    _covariant_indices: set[int]
-    _contravariant_indices: set[int]
+    _covariant_indices: jt.ArrayLike[int]
+    _contravariant_indices: jt.ArrayLike[int]
 
     def __init__(
         self,
@@ -88,19 +90,27 @@ class Tensor:
 
         n_free_indices = self.rank - tensor_rank
         if covariant is True:
-            self._covariant_indices = set(range(n_free_indices, self.rank))
+            self._covariant_indices = np.array(range(n_free_indices, self.rank))
         elif covariant is False:
-            self._covariant_indices = set()
+            self._covariant_indices = np.array([])
         else:
-            self._covariant_indices = set()
+            self._covariant_indices = np.array([])
             for idx in covariant:
                 checkify.check(-tensor_rank <= idx < tensor_rank, f"Index {idx} out of range [{-tensor_rank}, {tensor_rank})")
                 idx = sanitize_index(idx)  # type: ignore[no-untyped-call]
                 idx = posify_index(tensor_rank, idx)  # type: ignore[no-untyped-call]
-                self._covariant_indices.add(n_free_indices + idx)
+                self._covariant_indices = np.append(self._covariant_indices, n_free_indices + idx)
 
-        free_indices = set(range(n_free_indices))
-        self._contravariant_indices = set(range(self.rank)) - self._covariant_indices - free_indices
+        free_indices = np.array(range(n_free_indices))
+
+        _args = np.array(args)
+        if _args.ndim == 2 and len(_args) == 3: # Point case
+            self._contravariant_indices = np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank) - free_indices
+        elif _args.ndim == 0: # Line case
+            self._contravariant_indices = np.setdiff1d(np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank), free_indices, size=self.rank)
+
+        else:
+            self._contravariant_indices = np.setdiff1d(np.setdiff1d(np.arange(self.rank), self._covariant_indices, size=self.rank), free_indices, size=self.rank)
 
         self._validate_tensor()
 
@@ -263,7 +273,7 @@ class Tensor:
 
     @override
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.array})"
+        return f"{self.__class__.__name__}({self.array.tolist()})"
 
     def _get_index_mapping(self, index: TensorIndex) -> list[int | None]:
         normalized_index = normalize_index(index, self.shape)  # type: ignore[no-untyped-call]
