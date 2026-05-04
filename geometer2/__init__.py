@@ -1,5 +1,5 @@
-from geometer.curve import Circle, Cone, Conic, Cylinder, Ellipse, Quadric, QuadricCollection, Sphere
-from geometer.operators import (
+from geometer2.curve import Circle, Cone, Conic, Cylinder, Ellipse, Quadric, QuadricCollection, Sphere
+from geometer2.operators import (
     angle,
     angle_bisectors,
     crossratio,
@@ -11,7 +11,7 @@ from geometer.operators import (
     is_coplanar,
     is_perpendicular,
 )
-from geometer.point import (
+from geometer2.point import (
     I,
     J,
     Line,
@@ -25,7 +25,7 @@ from geometer.point import (
     join,
     meet,
 )
-from geometer.shapes import (
+from geometer2.shapes import (
     Cuboid,
     Polygon,
     PolygonCollection,
@@ -37,7 +37,7 @@ from geometer.shapes import (
     Simplex,
     Triangle,
 )
-from geometer.transformation import (
+from geometer2.transformation import (
     Transformation,
     TransformationCollection,
     affine_transform,
@@ -47,4 +47,4 @@ from geometer.transformation import (
     scaling,
     translation,
 )
-from geometer.version import __version__
+from geometer2.version import __version__
