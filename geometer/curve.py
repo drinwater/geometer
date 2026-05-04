@@ -5,7 +5,7 @@ from abc import ABC
 from itertools import combinations
 from typing import TYPE_CHECKING, cast
 
-import numpy as np
+import jax.numpy as np
 import numpy.typing as npt
 from numpy.lib.scimath import sqrt as csqrt
 from typing_extensions import overload, override

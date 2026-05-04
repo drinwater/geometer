@@ -41,7 +41,7 @@ pip install geometer
 
 ```Python
 from geometer import *
-import numpy as np
+import jax.numpy as np
 
 # Meet and Join operations
 p = Point(2, 4)

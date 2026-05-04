@@ -44,7 +44,7 @@ Other angles an distances can also be calculated:
     a = angle(l, Point(1, 0))
     dist(l, p)
 
-    import numpy as np
+    import jax.numpy as np
     p + 2*dist(p, q)*Point(np.cos(a), np.sin(a))
 
 Projective transformations can be easily created using the methods :obj:`~transformation.rotation` and

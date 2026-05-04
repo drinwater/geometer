@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
-    import numpy as np
+    import jax.numpy as np
 
 DISPATCHED_UFUNCS = {
     "add",

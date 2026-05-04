@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import numpy as np
+import jax.numpy as np
 
 from geometer import (
     Cuboid,

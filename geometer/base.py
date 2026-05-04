@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from itertools import permutations
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Literal
 
-import numpy as np
+import jax.numpy as np
 import numpy.typing as npt
 from typing_extensions import TypeVar, Unpack, overload, override
 

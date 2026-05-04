@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
-import numpy as np
+import jax.numpy as np
 import numpy.typing as npt
 
 from geometer.base import EQ_TOL_ABS, EQ_TOL_REL, LeviCivitaTensor, TensorDiagram

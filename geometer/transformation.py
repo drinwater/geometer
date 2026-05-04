@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC
 from typing import TYPE_CHECKING, Literal, TypeVar
 
-import numpy as np
+import jax.numpy as np
 import numpy.typing as npt
 from typing_extensions import overload, override
 

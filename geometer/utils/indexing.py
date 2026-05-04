@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from numbers import Integral, Number
 
-import numpy as np
+import jax.numpy as np
 
 
 def _sanitize_index_element(ind):

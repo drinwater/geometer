@@ -4,7 +4,7 @@ import math
 from numbers import Number
 from typing import TYPE_CHECKING, Literal, TypedDict
 
-import numpy as np
+import jax.numpy as np
 import numpy.typing as npt
 from numpy.lib.scimath import sqrt as csqrt
 
