@@ -22,16 +22,16 @@ import inspect
 import sys
 from os.path import dirname, relpath
 
-import geometer
+import geometer2
 
 project = "geometer"
 copyright = "2024, Jan Müller"
 author = "Jan Müller"
 
 # The short X.Y version
-version = geometer.__version__
+version = geometer2.__version__
 # The full version, including alpha/beta/rc tags
-release = geometer.__version__
+release = geometer2.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -102,9 +102,9 @@ def linkcode_resolve(domain, info):
     else:
         linespec = ""
 
-    fn = relpath(fn, start=dirname(geometer.__file__))
+    fn = relpath(fn, start=dirname(geometer2.__file__))
 
-    return f"https://github.com/jan-mue/geometer/blob/v{geometer.__version__}/geometer/{fn}{linespec}"
+    return f"https://github.com/jan-mue/geometer/blob/v{geometer2.__version__}/geometer/{fn}{linespec}"
 
 
 # Looks for objects in external projects
