@@ -3,7 +3,7 @@ build-backend = "hatchling.build"
 requires = [ "hatchling" ]
 
 [project]
-name = "geometer"
+name = "geometer2"
 description = "Python geometry package based on projective geometry and numpy."
 readme = "README.md"
 keywords = [ "geometry", "mathematics", "numpy", "projective geometry" ]
@@ -48,10 +48,10 @@ docs = [
 ]
 
 [tool.hatch.build]
-packages = [ "geometer" ]
+packages = [ "geometer2" ]
 
 [tool.hatch.version]
-path = "geometer/version.py"
+path = "geometer2/version.py"
 
 [tool.ruff]
 target-version = "py310"
@@ -114,7 +114,7 @@ lint.per-file-ignores."__init__.py" = [ "F401" ]
 lint.per-file-ignores."tests/**" = [ "D", "S101" ]
 lint.unfixable = []
 lint.flake8-tidy-imports.ban-relative-imports = "all"
-lint.isort.known-first-party = [ "geometer" ]
+lint.isort.known-first-party = [ "geometer2" ]
 lint.pydocstyle.convention = "google"
 
 [tool.codespell]
@@ -148,7 +148,7 @@ disable_error_code = [
 ]
 
 [[tool.mypy.overrides]]
-module = "geometer.utils.indexing"
+module = "geometer2.utils.indexing"
 ignore_errors = true
 ignore_missing_imports = true
 

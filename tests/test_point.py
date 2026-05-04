@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import jax.numpy as np
 
-from geometer import (
+from geometer2 import (
     I,
     J,
     Line,

@@ -3,7 +3,7 @@ from __future__ import annotations
 import jax.numpy as np
 import pytest
 
-from geometer import (
+from geometer2 import (
     Circle,
     Line,
     Point,
@@ -16,7 +16,7 @@ from geometer import (
     scaling,
     translation,
 )
-from geometer.exceptions import NoIncidence
+from geometer2.exceptions import NoIncidence
 
 
 class TestTransformation:

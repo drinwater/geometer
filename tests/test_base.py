@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import jax.numpy as np
 
-from geometer.base import KroneckerDelta, LeviCivitaTensor, Tensor, TensorCollection, TensorDiagram
+from geometer2.base import KroneckerDelta, LeviCivitaTensor, Tensor, TensorCollection, TensorDiagram
 
 
 class TestTensor:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import jax.numpy as np
 
-from geometer.utils import adjugate, det, inv, is_multiple, null_space, orth, roots
+from geometer2.utils import adjugate, det, inv, is_multiple, null_space, orth, roots
 
 
 def test_is_multiple() -> None:
