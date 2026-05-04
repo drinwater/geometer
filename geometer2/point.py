@@ -53,7 +53,8 @@ def _join_meet_duality(
     check_dependence: bool = True,
     normalize_result: bool = True,
 ) -> PointTensor | SubspaceTensor:
-    checkify.check(len(args) >= 2, f"Expected at least 2 arguments, got {len(args)}.")
+    if len(args) < 2:
+        raise ValueError(f"Expected at least 2 arguments, got {len(args)}.")
 
     n = args[0].dim + 1
     result: Tensor
@@ -110,28 +111,27 @@ def _join_meet_duality(
                         result = Tensor(result_array, covariant=False, tensor_rank=result_rank, copy=None)
                     else:
                         result = Tensor(array[indices + (slice(None),) + i[1:]], tensor_rank=1, copy=None)  # noqa: RUF005
-            
-            # can't intersect lines that are not coplanar and can't join skew lines in 3D
-            checkify.check(not intersect_lines and n != 4, "The given lines are not all coplanar.")
-            checkify.check(not np.any(coplanar) and not(a.free_indices > 0 or b.free_indices > 0), 
-                "Can only join tensors that are either all coplanar or all not coplanar.")
+
+            elif intersect_lines or n == 4:
+                # can't intersect lines that are not coplanar and can't join skew lines in 3D
+                raise NotCoplanar("The given lines are not all coplanar.")
+            elif np.any(coplanar) and (a.free_indices > 0 or b.free_indices > 0):
+                raise GeometryException("Can only join tensors that are either all coplanar or all not coplanar.")
 
         else:
-            checkify.check(False, f"Arguments of type {type(a)} and {type(b)} are not supported.")
+            raise ValueError(f"Arguments of type {type(a)} and {type(b)} are not supported.")
 
     else:
-        checkify.check(False, 
+        raise ValueError(
             f"Expected all arguments to be 1-tensors or a pair of lines/planes, but got {len(args)} tensors of higher rank."
         )
 
     if check_dependence:
         is_zero = result.is_zero()
-        cond = (result.free_indices == 0 and is_zero)
-        # cond2 = not cond
-        checkify.check(~cond, "Arguments are not linearly independent.")
+        checkify.check(result.free_indices == 0 and is_zero, "Arguments are not linearly independent.")
         # if err:
             # raise LinearDependenceError()
-        checkify.check(~np.any(is_zero), "Some arguments are not linearly independent.")
+        checkify.check(np.any(is_zero), "Some arguments are not linearly independent.")
         # if err:
         #     raise LinearDependenceError(, is_zero)
 
@@ -150,7 +150,7 @@ def _join_meet_duality(
     if result.tensor_shape == (0, n - 2):
         return LineCollection.from_tensor(result)
 
-    checkify.check(False, f"Unexpected tensor of type {result.tensor_shape}")
+    raise RuntimeError(f"Unexpected tensor of type {result.tensor_shape}")
 
 
 def _divide_by_power_of_two(array: np.ndarray, power: int) -> np.ndarray:
@@ -379,8 +379,8 @@ class PointLikeTensor(ProjectiveTensor, ABC):
         super().__init__(*args, tensor_rank=tensor_rank, **kwargs)
         if homogenize is True:
             self.array = np.append(self.array, np.ones((*self.shape[:-1], 1), self.dtype), axis=-1)
-        checkify.check(self.tensor_shape == (1, 0),
-            f"Expected tensor of type (1, 0), but is {self.tensor_shape}")
+        if self.tensor_shape != (1, 0):
+            raise ValueError(f"Expected tensor of type (1, 0), but is {self.tensor_shape}")
 
     @staticmethod
     def _normalize_array(array: np.ndarray) -> np.ndarray:
@@ -706,7 +706,7 @@ class SubspaceTensor(ProjectiveTensor, ABC):
         elif isinstance(other, LineTensor):
             result = self * other.covariant_tensor
         else:
-            checkify.check(False, f"argument of type {type(other)} not supported")
+            raise TypeError(f"argument of type {type(other)} not supported")
 
         axes = tuple(result._covariant_indices) + tuple(result._contravariant_indices)
         return np.all(np.isclose(result.array, 0, atol=tol), axis=axes)
@@ -809,9 +809,10 @@ class LineTensor(SubspaceTensor, ABC):
             )
         else:
             super().__init__(*args, tensor_rank=-2, **kwargs)
-        checkify.check(self.tensor_shape in {(0, self.dim - 1), (self.dim - 1, 0)}, f"Unexpected tensor of type {self.tensor_shape}")
-        checkify.check(not(self.dim == 3 and self.shape[-1] != self.shape[-2]), 
-            f"Expected quadratic matrix, but last two dimensions are {self.shape[-2:]}")
+        if self.tensor_shape not in {(0, self.dim - 1), (self.dim - 1, 0)}:
+            raise ValueError(f"Unexpected tensor of type {self.tensor_shape}")
+        if self.dim == 3 and self.shape[-1] != self.shape[-2]:
+            raise ValueError(f"Expected quadratic matrix, but last two dimensions are {self.shape[-2:]}")
 
     @override
     def _matrix_transform(self, m: npt.ArrayLike) -> LineTensor:
@@ -887,8 +888,8 @@ class LineTensor(SubspaceTensor, ABC):
     @property
     def covariant_tensor(self) -> LineTensor:
         """The covariant tensors of lines in 3D."""
-        checkify.check(self.dim == 3,
-            f"Expected dimension 3 but found dimension {self.dim}.")
+        if self.dim != 3:
+            raise NotImplementedError(f"Expected dimension 3 but found dimension {self.dim}.")
         if self.tensor_shape[0] > 0:
             return self
         e = LeviCivitaTensor(4)
@@ -898,8 +899,8 @@ class LineTensor(SubspaceTensor, ABC):
     @property
     def contravariant_tensor(self) -> LineTensor:
         """The contravariant tensors of lines in 3D."""
-        checkify.check(self.dim == 3,
-            f"Expected dimension 3 but found dimension {self.dim}.")
+        if self.dim != 3:
+            raise NotImplementedError(f"Expected dimension 3 but found dimension {self.dim}.")
         if self.tensor_shape[1] > 0:
             return self
         e = LeviCivitaTensor(4, False)
@@ -982,9 +983,8 @@ class LineTensor(SubspaceTensor, ABC):
         """
         n = self.dim + 1
         contains = self.contains(through)
-        result = LineCollection.from_array(np.empty(contains.shape + (n,) * (n - 2), np.complex64))
-        pred = np.any(contains)
-        def true(contains, result):
+        result = LineCollection.from_array(np.empty(contains.shape + (n,) * (n - 2), np.complex128))
+        if np.any(contains):
             l = self
             if self.free_indices > 0:
                 l = self[contains]  # type: ignore[assignment]
@@ -1008,21 +1008,14 @@ class LineTensor(SubspaceTensor, ABC):
                 p = p._matrix_transform(np.swapaxes(basis, -1, -2))
 
             result[contains] = join(through if through.free_indices == 0 else through[contains], p)  # type: ignore[call-arg, arg-type]
-            return result
 
-
-        # if np.any(~contains):
-        def false(contains, result):
+        if np.any(~contains):
             if through.free_indices > 0:
                 through = through[~contains]  # type: ignore[assignment]
             if self.free_indices > 0:
                 result[~contains] = cast(LineTensor, self[~contains]).mirror(through).join(through)
             else:
                 result[~contains] = self.mirror(through).join(through)
-            return result
-        
-        import jax
-        result = jax.lax.cond(pred, true, false, contains, result)
 
         return LineCollection.from_array(np.real_if_close(result.array))
 
@@ -1075,8 +1068,8 @@ class PlaneTensor(SubspaceTensor):
             super().__init__(join(*args), **kwargs)  # type: ignore[arg-type, call-arg]
         else:
             super().__init__(*args, **kwargs)
-        checkify.check(self.tensor_shape == (0, 1),
-            f"Expected tensor of type (0, 1), but is {self.tensor_shape}")
+        if self.tensor_shape != (0, 1):
+            raise ValueError(f"Expected tensor of type (0, 1), but is {self.tensor_shape}")
 
     @overload
     def meet(self, other: LineTensor) -> PointTensor: ...
@@ -1120,8 +1113,8 @@ class PlaneTensor(SubspaceTensor):
             The mirror points.
 
         """
-        checkify.check(self.dim == 3,
-            f"Expected dimension 3 but found dimension {self.dim}.")
+        if self.dim != 3:
+            raise NotImplementedError(f"Expected dimension 3 but found dimension {self.dim}.")
         l = self.meet(infty_plane)
         basis = l.basis_matrix
         l = LineCollection.from_array(np.cross(basis[..., 0, :-1], basis[..., 1, :-1]))
@@ -1161,8 +1154,8 @@ class PlaneTensor(SubspaceTensor):
             The perpendicular lines or planes.
 
         """
-        checkify.check(not(self.dim != 3 and isinstance(through, LineTensor)),
-            f"Expected dimension 3 but found dimension {self.dim}.")
+        if self.dim != 3 and isinstance(through, LineTensor):
+            raise NotImplementedError(f"Expected dimension 3 but found dimension {self.dim}.")
 
         direction_array = self.array[..., :-1]
         direction_array = np.append(direction_array, np.zeros((*self.shape[:-1], 1), dtype=self.dtype), axis=-1)

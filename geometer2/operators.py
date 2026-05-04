@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 import jax.numpy as np
-from jax.experimental import checkify
 import numpy.typing as npt
 
 from geometer2.base import EQ_TOL_ABS, EQ_TOL_REL, LeviCivitaTensor, TensorDiagram
@@ -61,7 +60,8 @@ def crossratio(
         and isinstance(c, LineTensor)
         and isinstance(d, LineTensor)
     ):
-        checkify.check(np.all(is_concurrent(a, b, c, d)), "The lines are not concurrent: " + str([a, b, c, d]))
+        if not np.all(is_concurrent(a, b, c, d)):
+            raise NotConcurrent("The lines are not concurrent: " + str([a, b, c, d]))
 
         from_point = a.meet(b)
         a, b, c, d = a.base_point, b.base_point, c.base_point, d.base_point
@@ -83,15 +83,17 @@ def crossratio(
         c = (p + c.direction)._matrix_transform(m)
         d = (p + d.direction)._matrix_transform(m)
 
-    checkify.check(
+    elif not (
         isinstance(a, PointTensor)
         and isinstance(b, PointTensor)
         and isinstance(c, PointTensor)
         and isinstance(d, PointTensor)
-    , f"Unsupported combination of types: a: {type(a)}, b: {type(b)}, c: {type(c)}, d: {type(d)}")
+    ):
+        raise TypeError(f"Unsupported combination of types: a: {type(a)}, b: {type(b)}, c: {type(c)}, d: {type(d)}")
 
     if a.dim > 2 or (from_point is None and a.dim == 2):
-        checkify.check(np.all(is_collinear(a, b, c, d)), "The points are not collinear: " + str([a, b, c, d]))
+        if not np.all(is_collinear(a, b, c, d)):
+            raise NotCollinear("The points are not collinear: " + str([a, b, c, d]))
 
         basis = np.stack([a.array, b.array], axis=-2)
         a = matvec(basis, a.array)  # type: ignore[assignment]
@@ -179,7 +181,6 @@ def angle(*args: PointTensor | LineTensor | PlaneTensor) -> npt.NDArray[np.float
       - Olivier Faugeras, Three-dimensional Computer Vision, Page 30
 
     """
-    raise_err = 0
     if len(args) == 3:
         a, b, c = args
         if a.dim > 2:
@@ -224,8 +225,7 @@ def angle(*args: PointTensor | LineTensor | PlaneTensor) -> npt.NDArray[np.float
             b = x.meet(infty)  # type: ignore[union-attr]
             c = y.meet(infty)  # type: ignore[union-attr]
     else:
-        raise_err = 1
-    checkify.check(raise_err == 0, f"Expected 2 or 3 arguments, got {len(args)}.")
+        raise ValueError(f"Expected 2 or 3 arguments, got {len(args)}.")
 
     return np.real(1 / 2j * np.log(crossratio(b, c, I, J, a)))  # type: ignore[arg-type]
 
@@ -349,7 +349,7 @@ def dist(
     if isinstance(p, Polyhedron) and isinstance(q, PointTensor):
         return np.min([dist(f, q) for f in p.faces], axis=0)
 
-    checkify.check(False, f"Unsupported types {type(p)} and {type(q)}.")
+    raise TypeError(f"Unsupported types {type(p)} and {type(q)}.")
 
 
 def is_cocircular(
@@ -420,7 +420,7 @@ def is_perpendicular(
         return np.isclose(crossratio(l, m, i, j), -1, rtol, atol)
 
     else:
-        checkify.check(False, "Only two lines or two planes are supported.")
+        raise NotImplementedError("Only two lines or two planes are supported.")
 
     return np.isclose(crossratio(L, M, I, J, Point(1, 1)), -1, rtol, atol)
 

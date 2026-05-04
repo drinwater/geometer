@@ -29,7 +29,7 @@ def is_numerical_scalar(element: npt.ArrayLike) -> TypeGuard[NumericalScalar]:
     """
     if isinstance(element, (Number, np.number, np.bool_)):
         return True
-    a = np.asarray(element.array)
+    a = np.asarray(element)
     return a.ndim == 0 and is_numerical_dtype(a.dtype)
 
 

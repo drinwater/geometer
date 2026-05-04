@@ -6,7 +6,6 @@ from itertools import combinations
 from typing import TYPE_CHECKING, cast
 
 import jax.numpy as np
-from jax.experimental import checkify
 import numpy.typing as npt
 from numpy.lib.scimath import sqrt as csqrt
 from typing_extensions import overload, override
@@ -191,8 +190,8 @@ class QuadricTensor(ProjectiveTensor, ABC):
         i = np.unravel_index(np.abs(t).reshape((*t.shape[:-2], -1)).argmax(axis=-1), t.shape[-2:])
         p, q = t[indices + i[:1]], t[(*indices, slice(None), i[1])]
 
-        checkify.check(not (self.dim > 2 and not np.all(is_multiple(outer(q, p), t, rtol=EQ_TOL_REL, atol=EQ_TOL_ABS, axis=(-2, -1)))), 
-            "Quadric has no decomposition in 2 components.")
+        if self.dim > 2 and not np.all(is_multiple(outer(q, p), t, rtol=EQ_TOL_REL, atol=EQ_TOL_ABS, axis=(-2, -1))):
+            raise NotReducible("Quadric has no decomposition in 2 components.")
 
         # TODO: make order of components reproducible
 
@@ -337,7 +336,8 @@ class Conic(Quadric):
             IncidenceError: If one of the points lies on the tangent.
 
         """
-        checkify.check(not(any(tangent.contains(p) for p in [a, b, c, d])), "The supplied points cannot lie on the supplied tangent!")
+        if any(tangent.contains(p) for p in [a, b, c, d]):
+            raise IncidenceError("The supplied points cannot lie on the supplied tangent!")
 
         a1, a2 = Line(a, c).meet(tangent).normalized_array, Line(b, d).meet(tangent).normalized_array
         b1, b2 = Line(a, b).meet(tangent).normalized_array, Line(c, d).meet(tangent).normalized_array
@@ -526,8 +526,8 @@ class Ellipse(Conic):
         vradius: float = 1,
         **kwargs: Unpack[NDArrayParameters],
     ) -> None:
-        checkify.check(not(hradius == vradius == 0),
-            "hradius and vradius can not both be zero.")
+        if hradius == vradius == 0:
+            raise ValueError("hradius and vradius can not both be zero.")
 
         r = np.array([vradius**2, hradius**2, 1])
         c = -center.normalized_array
@@ -556,8 +556,8 @@ class Circle(Ellipse):
     """
 
     def __init__(self, center: Point = Point(0, 0), radius: float = 1, **kwargs: Unpack[NDArrayParameters]) -> None:
-        checkify.check(not (radius <= 0),
-           f"radius must be greater than 0, but is {radius}")
+        if radius <= 0:
+            raise ValueError(f"radius must be greater than 0, but is {radius}")
         super().__init__(center, radius, radius, **kwargs)
 
     @property
@@ -614,8 +614,8 @@ class Sphere(Quadric):
     """
 
     def __init__(self, center: Point = Point(0, 0, 0), radius: float = 1, **kwargs: Unpack[NDArrayParameters]) -> None:
-        checkify.check(radius != 0,
-            "Sphere radius cannot be 0.")
+        if radius == 0:
+            raise ValueError("Sphere radius cannot be 0.")
 
         c = -center.normalized_array
         m = np.eye(center.shape[0], dtype=np.promote_types(c.dtype, type(radius)))
@@ -675,8 +675,8 @@ class Cone(Quadric):
         radius: float = 1,
         **kwargs: Unpack[QuadricParameters],
     ) -> None:
-        checkify.check(radius != 0,
-            "The radius of a cone can not be zero.")
+        if radius == 0:
+            raise ValueError("The radius of a cone can not be zero.")
 
         from geometer2.operators import angle, dist  # noqa: PLC0415
 
